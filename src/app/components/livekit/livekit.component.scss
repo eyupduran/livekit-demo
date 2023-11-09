@@ -111,40 +111,42 @@
     z-index: 5;
   }
   
-  .participant .size {
+  ::ng-deep .participant .size {
     text-align: center;
   }
   
-  .participant .right {
+  ::ng-deep .participant .right {
     text-align: right;
+    padding-right: 10px;
   }
   
   ::ng-deep .participant.speaking {
     border: 3px solid rgba(0, 111, 147, 0.7);
   }
   
-  .participant .mic-off {
-    color: #d33;
-    text-align: right;
+  ::ng-deep .participant .mic-off {
+    text-align: right !important;
   }
   
-  .participant .mic-on {
-    text-align: right;
+  ::ng-deep .participant .mic-on {
+    text-align: right !important;
   }
   
-  .participant .connection-excellent {
-    color: green;
+  ::ng-deep .participant .connection-excellent {
+    color: green !important;
   }
   
-  .participant .connection-good {
-    color: orange;
+  ::ng-deep .participant .connection-good {
+    color: orange !important;
   }
   
-  .participant .connection-poor {
-    color: red;
+  ::ng-deep .participant .connection-poor {
+    color: red !important;
   }
-  
-  .participant .volume-control {
+  ::ng-deep .participant .right i {
+    margin-right: 5px;
+}
+  ::ng-deep .participant .volume-control {
     position: absolute;
     top: 4px;
     right: 2px;
@@ -153,14 +155,21 @@
     height: 100%;
   }
   
-  .participant .volume-control > input {
+  ::ng-deep .participant .volume-control > input {
     width: 16px;
     height: 40%;
     -webkit-appearance: slider-vertical; /* Chromium */
   }
   
-  .participant .volume-meter {
+  ::ng-deep .participant .volume-meter {
     position: absolute;
     z-index: 4;
   }
+  ::ng-deep #local-volume {
+    display: block;
+    width: 100%; /* Or whatever width you want */
+    height: 20px; /* Or whatever height you want */
+    margin-top: 10px; /* Adjust as needed */
+    /* Add any other styles you might need */
+}
   

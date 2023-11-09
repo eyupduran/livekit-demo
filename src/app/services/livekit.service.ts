@@ -30,23 +30,17 @@ import {
   supportsAV1,
   supportsVP9,
 } from 'livekit-client';
+import { identity } from 'rxjs';
 
 
-declare var $: any; // jQuery'yi tanıttık
-declare global {
-  interface Window {
-    currentRoom: any;
-    appActions: any; //BURASI DEĞİŞTİRİLDİ
-  }
-}
 
 @Injectable({
   providedIn: 'root'
 })
 export class LivekitService {
 
-   room: Room ;
-
+  room: Room;  
+  message :string 
   state = {
     isFrontFacing: false,
     encoder: new TextEncoder(),
@@ -56,41 +50,36 @@ export class LivekitService {
     e2eeKeyProvider: new ExternalE2EEKeyProvider(),
   };
   //Connection
-  public livekitUrl: string
-  public token: string
-  public e2EEKey: string
+  public livekitUrl: string;
+  public token: string;
+  public e2EEKey: string;
 
   //
-  participantIdentity: any
-  
+  participantIdentity: any;
+  devices: MediaDeviceInfo[]
   //connect options
-  simulcast: any
-  dynacast: any
-  forceTurn: any
-  adaptiveStream: any
-  publishOption: any
+  simulcast: boolean = true
+  dynacast: boolean = true
+  forceTurn: any = false
+  adaptiveStream:boolean = true
+  publishOption: boolean = true
   preferredCodec: VideoCodec;
-  autoSubscribe: any
-  e2eeEnabled: any
-  e2ee: any
+  autoSubscribe:boolean = true
+  e2eeEnabled: any = false
+  e2ee: any = false
 
   //PARTICIPANTS
-  participants: Participant[]
-
+  participants: Participant[];
   startTime: number;
-
-
   elementMapping: { [k: string]: MediaDeviceKind } = {
     'video-input': 'videoinput',
     'audio-input': 'audioinput',
     'audio-output': 'audiooutput',
   };
-  constructor() {
-
-  }
+  constructor() { }
 
   async connectWithFormInput() {
-    const url = this.livekitUrl
+    const url = this.livekitUrl;
     const token = this.token;
     const simulcast = this.simulcast;
     const dynacast = this.dynacast;
@@ -122,7 +111,9 @@ export class LivekitService {
       e2ee: e2eeEnabled
         ? {
           keyProvider: this.state.e2eeKeyProvider,
-          worker: new Worker(new URL('livekit-client/e2ee-worker', import.meta.url)),
+          worker: new Worker(
+            new URL('livekit-client/e2ee-worker', import.meta.url)
+          ),
         }
         : undefined,
     };
@@ -130,7 +121,7 @@ export class LivekitService {
       roomOpts.publishDefaults?.videoCodec === 'av1' ||
       roomOpts.publishDefaults?.videoCodec === 'vp9'
     ) {
-      roomOpts.publishDefaults.backupCodec = false; //DEFAULTU TRUE:BAKILACAK
+      //roomOpts.publishDefaults.backupCodec = false; //DEFAULTU TRUE:BAKILACAK
     }
 
     const connectOpts: RoomConnectOptions = {
@@ -145,10 +136,33 @@ export class LivekitService {
 
     this.state.bitrateInterval = setInterval(this.renderBitrate, 1000);
   }
-
+ populateSupportedCodecs() {
+    const codecSelect = <HTMLSelectElement>document.getElementById('preferred-codec');
+    const options: string[][] = [
+      ['', 'Preferred codec'],
+      ['h264', 'H.264'],
+      ['vp8', 'VP8'],
+    ];
+    if (supportsVP9()) {
+      options.push(['vp9', 'VP9']);
+    }
+    if (supportsAV1()) {
+      options.push(['av1', 'AV1']);
+    }
+    for (const o of options) {
+      const n = document.createElement('option');
+      n.value = o[0];
+      n.appendChild(document.createTextNode(o[1]));
+      codecSelect.appendChild(n);
+    }
+  }
   updateSearchParams(url: string, token: string, key?: string) {
     const params = new URLSearchParams({ url, token });
-    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}?${params.toString()}`
+    );
   }
 
   renderBitrate() {
@@ -157,9 +171,9 @@ export class LivekitService {
     }
     const participants: Participant[] = [...this.room.participants.values()];
     participants.push(this.room.localParticipant);
-
-    for (const p of this.participants) {
-      const elm = $(`bitrate-${p.identity}`);
+    this.participants.push(...this.room.participants.values());
+    for (const p of participants) {
+      const elm = <HTMLElement>document.getElementById("bitrade-"+identity)
       let totalBitrate = 0;
       for (const t of p.tracks.values()) {
         if (t.track) {
@@ -168,14 +182,16 @@ export class LivekitService {
 
         if (t.source === Track.Source.Camera) {
           if (t.videoTrack instanceof RemoteVideoTrack) {
-            const codecElm = $(`codec-${p.identity}`)! as HTMLDivElement;
+            const codecElm = <HTMLElement>document.getElementById("codec-"+identity)
             codecElm.innerHTML = t.videoTrack.getDecoderImplementation() ?? '';
           }
         }
       }
       let displayText = '';
       if (totalBitrate > 0) {
-        displayText = `${Math.round(totalBitrate / 1024).toLocaleString()} kbps`;
+        displayText = `${Math.round(
+          totalBitrate / 1024
+        ).toLocaleString()} kbps`;
       }
       if (elm) {
          elm.innerHTML = displayText;
@@ -183,32 +199,25 @@ export class LivekitService {
     }
   }
 
-
   async connectToRoom(
     url: string,
     token: string,
     roomOptions?: RoomOptions,
     connectOptions?: RoomConnectOptions,
-    shouldPublish?: boolean,
+    shouldPublish?: boolean
   ): Promise<Room | undefined> {
-     this.room = new Room(roomOptions);
+    this.room = new Room(roomOptions);
 
     const startTime = Date.now();
     await this.room.prepareConnection(url, token);
     const prewarmTime = Date.now() - startTime;
-    //this.appendLog(`prewarmed connection in ${prewarmTime}ms`);
-
+-
     this.room
       .on(RoomEvent.ParticipantConnected, this.participantConnected)
-      .on(RoomEvent.ParticipantDisconnected, this.participantDisconnected)
-      .on(RoomEvent.DataReceived, this.handleData)
       .on(RoomEvent.Disconnected, this.handleRoomDisconnect)
-      //.on(RoomEvent.Reconnecting, () => this.appendLog('Reconnecting to room'))
+      .on(RoomEvent.DataReceived, this.handleData)
+      .on(RoomEvent.ParticipantDisconnected, this.participantDisconnected)
       .on(RoomEvent.Reconnected, async () => {
-        // this.appendLog(
-        //   'Successfully reconnected. server',
-        //   await room.engine.getConnectedServerAddress(),
-        // );
       })
       .on(RoomEvent.LocalTrackPublished, (pub) => {
         const track = pub.track as LocalAudioTrack;
@@ -217,7 +226,8 @@ export class LivekitService {
           const { calculateVolume } = createAudioAnalyser(track);
 
           setInterval(() => {
-            // $('local-volume')?.setAttribute('value', calculateVolume().toFixed(4));
+            const codecElm = <HTMLElement>document.getElementById("local-volume")
+             codecElm.setAttribute('value', calculateVolume().toFixed(4));
           }, 200);
         }
         this.renderParticipant(this.room.localParticipant);
@@ -230,56 +240,51 @@ export class LivekitService {
         this.renderScreenShare(this.room);
       })
       .on(RoomEvent.RoomMetadataChanged, (metadata) => {
-        //this.appendLog('new metadata for room', metadata);
       })
       .on(RoomEvent.MediaDevicesChanged, this.handleDevicesChanged)
       .on(RoomEvent.AudioPlaybackStatusChanged, () => {
         if (this.room.canPlaybackAudio) {
-          $('start-audio-button')?.setAttribute('disabled', 'true');
+          const element = <HTMLButtonElement>document.getElementById("start-audio-button")
+          element.setAttribute('disabled', 'true');
+
         } else {
-          $('start-audio-button')?.removeAttribute('disabled');
+          const element = <HTMLButtonElement>document.getElementById("start-audio-button")
+          element.setAttribute('disabled', 'true');
         }
       })
       .on(RoomEvent.MediaDevicesError, (e: Error) => {
         const failure = MediaDeviceFailure.getFailure(e);
-       // this.appendLog('media device failure', failure);
       })
       .on(
         RoomEvent.ConnectionQualityChanged,
         (quality: ConnectionQuality, participant?: Participant) => {
-         // this.appendLog('connection quality changed', participant?.identity, quality);
-        },
+        }
       )
       .on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
-        //this.appendLog('subscribed to track', pub.trackSid, participant.identity);
         this.renderParticipant(participant);
         this.renderScreenShare(this.room);
       })
       .on(RoomEvent.TrackUnsubscribed, (_, pub, participant) => {
-       // this.appendLog('unsubscribed from track', pub.trackSid);
         this.renderParticipant(participant);
         this.renderScreenShare(this.room);
       })
       .on(RoomEvent.SignalConnected, async () => {
         const signalConnectionTime = Date.now() - startTime;
-        //this.appendLog(`signal connection established in ${signalConnectionTime}ms`);
         // speed up publishing by starting to publish before it's fully connected
         // publishing is accepted as soon as signal connection has established
         if (shouldPublish) {
           await this.room.localParticipant.enableCameraAndMicrophone();
-         // this.appendLog(`tracks published in ${Date.now() - startTime}ms`);
           this.updateButtonsForPublishState();
         }
       })
       .on(RoomEvent.ParticipantEncryptionStatusChanged, () => {
         this.updateButtonsForPublishState();
       })
-      .on(RoomEvent.TrackStreamStateChanged, (pub, streamState, participant) => {
-        // this.appendLog(
-        //   `stream state changed for ${pub.trackSid} (${participant.identity
-        //   }) to ${streamState.toString()}`,
-        // );
-      });
+      .on(
+        RoomEvent.TrackStreamStateChanged,
+        (pub, streamState, participant) => {
+        }
+      );
 
     try {
       // read and set current key from input
@@ -291,46 +296,36 @@ export class LivekitService {
 
       await this.room.connect(url, token, connectOptions);
       const elapsed = Date.now() - startTime;
-      // this.appendLog(
-      //   `successfully connected to ${room.name} in ${Math.round(elapsed)}ms`,
-      //   await room.engine.getConnectedServerAddress(),
-      // );
     } catch (error: any) {
       let message: any = error;
       if (error.message) {
         message = error.message;
       }
-     // this.appendLog('could not connect:', message);
       return;
     }
     let currentRoom = this.room;
-     window.currentRoom = this.room;
-   // this.setButtonsForState(true);
+     this.setButtonsForState(true);
 
-   this.room.participants.forEach((participant) => {
-    debugger
+    this.room.participants.forEach((participant) => {
       this.participantConnected(participant);
     });
     this.participantConnected(this.room.localParticipant);
-
     return this.room;
   }
 
-  async toggleAudio () {  
+  async toggleAudio() {
     if (!this.room) return;
     const enabled = this.room.localParticipant.isMicrophoneEnabled;
     this.setButtonDisabled('toggle-audio-button', true);
     if (enabled) {
-      //this.appendLog('disabling audio');
     } else {
-      //this.appendLog('enabling audio');
     }
     await this.room.localParticipant.setMicrophoneEnabled(!enabled);
     this.setButtonDisabled('toggle-audio-button', false);
     this.updateButtonsForPublishState();
   }
-   setButtonDisabled(buttonId: string, isDisabled: boolean) {
-    const el = $(buttonId) as HTMLButtonElement;
+  setButtonDisabled(buttonId: string, isDisabled: boolean) {
+    const el = <HTMLButtonElement>document.getElementById(buttonId)
     el.disabled = isDisabled;
   }
 
@@ -339,9 +334,7 @@ export class LivekitService {
     this.setButtonDisabled('toggle-video-button', true);
     const enabled = this.room.localParticipant.isCameraEnabled;
     if (enabled) {
-      //this.appendLog('disabling video');
     } else {
-      //this.appendLog('enabling video');
     }
     await this.room.localParticipant.setCameraEnabled(!enabled);
     this.setButtonDisabled('toggle-video-button', false);
@@ -357,9 +350,9 @@ export class LivekitService {
       return;
     }
     if (this.state.isFrontFacing) {
-      // this.setButtonState('flip-video-button', 'Front Camera', false);
+       this.setButtonState('flip-video-button', 'Front Camera', false);
     } else {
-      // this.setButtonState('flip-video-button', 'Back Camera', false);
+       this.setButtonState('flip-video-button', 'Back Camera', false);
     }
     this.state.isFrontFacing = !this.state.isFrontFacing;
     const options: VideoCaptureOptions = {
@@ -371,11 +364,11 @@ export class LivekitService {
 
   async shareScreen() {
     if (!this.room) return;
-
     const enabled = this.room.localParticipant.isScreenShareEnabled;
-    //this.appendLog(`${enabled ? 'stopping' : 'starting'} screen share`);
     this.setButtonDisabled('share-screen-button', true);
-    await this.room.localParticipant.setScreenShareEnabled(!enabled, { audio: true });
+    await this.room.localParticipant.setScreenShareEnabled(!enabled, {
+      audio: true,
+    });
     this.setButtonDisabled('share-screen-button', false);
     this.updateButtonsForPublishState();
   }
@@ -384,19 +377,23 @@ export class LivekitService {
       return;
     }
     // read and set current key from input
-    const cryptoKey = (<HTMLSelectElement>$('crypto-key')).value;
-    this.state.e2eeKeyProvider.setKey(cryptoKey);
+    const cryptoKeyInput = document.getElementById('crypto-key') as HTMLInputElement | null;
+        if (cryptoKeyInput) {
+          let cryptoKey = cryptoKeyInput.value;
+          this.state.e2eeKeyProvider.setKey(cryptoKey);
+        }
+    //cryptoKey = cryptoKey.value
 
     await this.room.setE2EEEnabled(!this.room.isE2EEEnabled);
   }
-  async ratchetE2EEKey (){
+  async ratchetE2EEKey() {
     if (!this.room || !this.room.options.e2ee) {
       return;
     }
     await this.state.e2eeKeyProvider.ratchetKey();
   }
 
-  handleScenario (e: Event) {
+  handleScenario(e: Event) {
     const scenario = (<HTMLSelectElement>e.target).value;
     if (scenario === 'subscribe-all') {
       this.room?.participants.forEach((p) => {
@@ -420,7 +417,7 @@ export class LivekitService {
     }
   }
 
-  startAudio ()  {
+  startAudio() {
     this.room?.startAudio();
   }
   handlePreferredQuality(e: Event) {
@@ -447,7 +444,7 @@ export class LivekitService {
       });
     }
   }
-  handlePreferredFPS (e: Event) {
+  handlePreferredFPS(e: Event) {
     const fps = +(<HTMLSelectElement>e.target).value;
     if (this.room) {
       this.room.participants.forEach((participant) => {
@@ -458,47 +455,28 @@ export class LivekitService {
     }
   }
 
-  async handleDeviceSelected  (e: Event) {
+  async handleDeviceSelected(e: Event) {
     const deviceId = (<HTMLSelectElement>e.target).value;
     const elementId = (<HTMLSelectElement>e.target).id;
     const kind = this.elementMapping[elementId];
     if (!kind) {
       return;
     }
-
     this.state.defaultDevices.set(kind, deviceId);
 
     if (this.room) {
       await this.room.switchActiveDevice(kind, deviceId);
     }
   }
-  // appendLog(...args: any[]) {
-  //   const logger = $('log')!;
-  //   for (let i = 0; i < arguments.length; i += 1) {
-  //     if (typeof args[i] === 'object') {
-  //       logger.innerHTML += `${
-  //         JSON && JSON.stringify ? JSON.stringify(args[i], undefined, 2) : args[i]
-  //       } `;
-  //     } else {
-  //        logger.innerHTML += `${args[i]} `;
-  //     }
-  //   }
-  //     logger.innerHTML += '\n';
-  //   (() => {
-  //       logger.scrollTop = logger.scrollHeight;
-  //   })();
-  // }
+
 
   participantConnected(participant: Participant) {
-   // this.appendLog('participant', participant.identity, 'connected', participant.metadata);
     console.log('tracks', participant.tracks);
     participant
       .on(ParticipantEvent.TrackMuted, (pub: TrackPublication) => {
-        //this.appendLog('track was muted', pub.trackSid, participant.identity);
         this.renderParticipant(participant);
       })
       .on(ParticipantEvent.TrackUnmuted, (pub: TrackPublication) => {
-        //this.appendLog('track was unmuted', pub.trackSid, participant.identity);
         this.renderParticipant(participant);
       })
       .on(ParticipantEvent.IsSpeakingChanged, () => {
@@ -509,18 +487,17 @@ export class LivekitService {
       });
   }
 
-
   renderParticipant(participant: Participant, remove: boolean = false) {
-    const container = $('participants-area');
+    const container = <HTMLElement>document.getElementById("participants-area");
     if (!container) return;
     const { identity } = participant;
-    let div = $(`#participant-${identity}`) as HTMLElement;
+    let div = <HTMLElement>document.getElementById("participant-" + identity);
     if (!div && !remove) {
       div = document.createElement('div');
       div.id = `participant-${identity}`;
       div.className = 'participant';
       div.innerHTML = `
-      <video id="video-${identity}"></video>
+      <video class="video-elm" id="video-${identity}"></video>
       <audio id="audio-${identity}"></audio>
       <div class="info-bar">
         <div id="name-${identity}" class="name">
@@ -543,22 +520,23 @@ export class LivekitService {
           ? `<div class="volume-control">
         <input id="volume-${identity}" type="range" min="0" max="1" step="0.1" value="1" orient="vertical" />
       </div>`
-          : `<progress id="local-volume" max="1" value="0" />`
-        }
-
-    `;
+          : `<progress id="local-volume" max="1" value="0"></progress>`
+        }`;
       container.appendChild(div);
+      let sizeElm = <HTMLSpanElement>document.getElementById("size-" + identity);
+      let videoElm = <HTMLVideoElement>document.getElementById("video-" + identity);
 
-      const sizeElm = $(`size-${identity}`) as HTMLElement;
-      const videoElm = <HTMLVideoElement>$(`video-${identity}`) as HTMLVideoElement;
       videoElm.onresize = () => {
         this.updateVideoSize(videoElm!, sizeElm!);
       };
     }
-    const videoElm = <HTMLVideoElement>$(`video-${identity}`) as HTMLVideoElement;
-    const audioELm = <HTMLAudioElement>$(`audio-${identity}`) as HTMLAudioElement;
+    let videoElm = <HTMLVideoElement>document.getElementById("video-" + identity);
+
+    let audioELm = <HTMLAudioElement>document.getElementById("audio-" + identity);
+
     if (remove) {
-      div?.remove();
+      div.remove();
+      container.style.display = 'none';
       if (videoElm) {
         videoElm.srcObject = null;
         videoElm.src = '';
@@ -571,33 +549,36 @@ export class LivekitService {
     }
 
     // update properties
-    $(`name-${identity}`)!.innerHTML = participant.identity;
+    const element = <HTMLElement>document.getElementById("name-" + identity);
+    element.innerHTML = participant.identity;
+
     if (participant instanceof LocalParticipant) {
-      $(`name-${identity}`)!.innerHTML += ' (you)';
+      element.innerHTML += ' (you)';
     }
-    debugger
-    const micElm = $(`mic-${identity}`)!;
-    const signalElm = $(`signal-${identity}`)!;
+    const micElm = <HTMLElement>document.getElementById("mic-" + identity);
+    const signalElm = <HTMLElement>document.getElementById("signal-" + identity);
     const cameraPub = participant.getTrack(Track.Source.Camera);
     const micPub = participant.getTrack(Track.Source.Microphone);
     if (participant.isSpeaking) {
-      //div!.classList.add('speaking');
+      div!.classList.add('speaking');
     } else {
-      //div!.classList.remove('speaking');
+      div!.classList.remove('speaking');
     }
 
     if (participant instanceof RemoteParticipant) {
-      const volumeSlider = <HTMLInputElement>$(`volume-${identity}`);
+      const volumeSlider = <HTMLInputElement>document.getElementById("volume-" + identity);
       volumeSlider.addEventListener('input', (ev) => {
-        participant.setVolume(Number.parseFloat((ev.target as HTMLInputElement).value));
+        participant.setVolume(
+          Number.parseFloat((ev.target as HTMLInputElement).value)
+        );
       });
     }
 
-    const cameraEnabled = cameraPub && cameraPub.isSubscribed && !cameraPub.isMuted;
+    const cameraEnabled =
+      cameraPub && cameraPub.isSubscribed && !cameraPub.isMuted;
     if (cameraEnabled) {
       if (participant instanceof LocalParticipant) {
         // flip
-        debugger
         videoElm.style.transform = 'scale(-1, 1)';
       } else if (!cameraPub?.videoTrack?.attachedElements.includes(videoElm)) {
         const renderStartTime = Date.now();
@@ -605,19 +586,19 @@ export class LivekitService {
         videoElm.onloadeddata = () => {
           const elapsed = Date.now() - renderStartTime;
           let fromJoin = 0;
-          if (participant.joinedAt && participant.joinedAt.getTime() < this.startTime) {
+          if (
+            participant.joinedAt &&
+            participant.joinedAt.getTime() < this.startTime
+          ) {
             fromJoin = Date.now() - this.startTime;
           }
-          // this.appendLog(
-          //   `RemoteVideoTrack ${cameraPub?.trackSid} (${videoElm.videoWidth}x${videoElm.videoHeight}) rendered in ${elapsed}ms`,
-          //   fromJoin > 0 ? `, ${fromJoin}ms from start` : '',
-          // );
         };
       }
       cameraPub?.videoTrack?.attach(videoElm);
     } else {
       // clear information display
-      $(`size-${identity}`)!.innerHTML = '';
+      let element = <HTMLElement>document.getElementById("size-" + identity);
+      element.innerHTML = '';
       if (cameraPub?.videoTrack) {
         // detach manually whenever possible
         cameraPub.videoTrack?.detach(videoElm);
@@ -632,9 +613,11 @@ export class LivekitService {
       if (!(participant instanceof LocalParticipant)) {
         // don't attach local audio
         audioELm.onloadeddata = () => {
-          if (participant.joinedAt && participant.joinedAt.getTime() < this.startTime) {
+          if (
+            participant.joinedAt &&
+            participant.joinedAt.getTime() < this.startTime
+          ) {
             const fromJoin = Date.now() - this.startTime;
-           // this.appendLog(`RemoteAudioTrack ${micPub?.trackSid} played ${fromJoin}ms from start`);
           }
         };
         micPub?.audioTrack?.attach(audioELm);
@@ -646,7 +629,8 @@ export class LivekitService {
       micElm.innerHTML = '<i class="fas fa-microphone-slash"></i>';
     }
 
-    const e2eeElm = $(`e2ee-${identity}`)!;
+    let e2eeElm = <HTMLElement>document.getElementById("e2ee-" + identity);
+
     if (participant.isEncrypted) {
       e2eeElm.className = 'e2ee-on';
       e2eeElm.innerHTML = '<i class="fas fa-lock"></i>';
@@ -672,14 +656,13 @@ export class LivekitService {
     target.innerHTML = `(${element.videoWidth}x${element.videoHeight})`;
   }
   participantDisconnected(participant: RemoteParticipant) {
-   // this.appendLog('participant', participant.sid, 'disconnected');
-
     this.renderParticipant(participant, true);
   }
 
   handleData(msg: Uint8Array, participant?: RemoteParticipant) {
+    console.log("handleData",msg);
     const str = this.state.decoder.decode(msg);
-    const chat = <HTMLTextAreaElement>$('chat');
+    const chat = <HTMLTextAreaElement>document.getElementById('chat');
     let from = 'server';
     if (participant) {
       from = participant.identity;
@@ -689,25 +672,22 @@ export class LivekitService {
 
   handleRoomDisconnect(reason?: DisconnectReason) {
     if (!this.room) return;
-   // this.appendLog('disconnected from room', { reason });
     this.setButtonsForState(false);
     this.renderParticipant(this.room.localParticipant, true);
     this.room.participants.forEach((p) => {
       this.renderParticipant(p, true);
     });
     this.renderScreenShare(this.room);
+     const container = <HTMLElement>document.getElementById("participants-area");
 
-    const container = $('participants-area');
     if (container) {
-      container.innerHTML = '';
+      container.remove();
     }
 
     // clear the chat area on disconnect
-    const chat = <HTMLTextAreaElement>$('chat');
+    const chat = <HTMLTextAreaElement>document.getElementById('chat');
     chat.value = '';
 
-    this.room ;
-    // window.currentRoom = undefined;
   }
 
   updateButtonsForPublishState() {
@@ -717,63 +697,61 @@ export class LivekitService {
     const lp = this.room.localParticipant;
 
     // video
-    // this.setButtonState(
-    //   'toggle-video-button',
-    //   `${lp.isCameraEnabled ? 'Disable' : 'Enable'} Video`,
-    //   lp.isCameraEnabled,
-    // );
+    this.setButtonState(
+      'toggle-video-button',
+      `${lp.isCameraEnabled ? 'Disable' : 'Enable'} Video`,
+      lp.isCameraEnabled,
+    );
 
     // audio
-    // this.setButtonState(
-    //   'toggle-audio-button',
-    //   `${lp.isMicrophoneEnabled ? 'Disable' : 'Enable'} Audio`,
-    //   lp.isMicrophoneEnabled,
-    // );
+    this.setButtonState(
+      'toggle-audio-button',
+      `${lp.isMicrophoneEnabled ? 'Disable' : 'Enable'} Audio`,
+      lp.isMicrophoneEnabled,
+    );
 
     // screen share
-    // this.setButtonState(
-    //   'share-screen-button',
-    //   lp.isScreenShareEnabled ? 'Stop Screen Share' : 'Share Screen',
-    //   lp.isScreenShareEnabled,
-    // );
+    this.setButtonState(
+      'share-screen-button',
+      lp.isScreenShareEnabled ? 'Stop Screen Share' : 'Share Screen',
+      lp.isScreenShareEnabled,
+    );
 
     // e2ee
-    // this.setButtonState(
-    //   'toggle-e2ee-button',
-    //   `${this.room.isE2EEEnabled ? 'Disable' : 'Enable'} E2EE`,
-    //   this.room.isE2EEEnabled,
-    // );
+    this.setButtonState(
+      'toggle-e2ee-button',
+      `${this.room.isE2EEEnabled ? 'Disable' : 'Enable'} E2EE`,
+      this.room.isE2EEEnabled,
+    );
   }
 
-  // setButtonState(
-  //   buttonId: string,
-  //   buttonText: string,
-  //   isActive: boolean,
-  //   isDisabled: boolean | undefined = undefined,
-  // ) {
-  //   debugger
-  //   const el = $(buttonId) as HTMLButtonElement;
-  //   if (!el) return;
-  //   if (isDisabled !== undefined) {
-  //     el.disabled = isDisabled;
-  //   }
-  //   el.innerHTML = buttonText;
-  //   if (isActive) {
-  //     el.classList.add('active');
-  //   } else {
-  //     el.classList.remove('active');
-  //   }
-  // }
+  setButtonState(
+    buttonId: string,
+    buttonText: string,
+    isActive: boolean,
+    isDisabled: boolean | undefined = undefined,
+  ) {
+    const el = <HTMLButtonElement>document.getElementById(buttonId)
+    if (!el) return;
+    if (isDisabled !== undefined) {
+      el.disabled = isDisabled;
+    }
+    el.innerHTML = buttonText;
+    if (isActive) {
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  }
   renderScreenShare(room: Room) {
-    const div = $('screenshare-area')!;
+     let div = <HTMLElement>document.getElementById("screenshare-area")
     if (room.state !== ConnectionState.Connected) {
       div.style.display = 'none';
       return;
     }
     let participant: Participant | undefined;
-    let screenSharePub: TrackPublication | undefined = room.localParticipant.getTrack(
-      Track.Source.ScreenShare,
-    );
+    let screenSharePub: TrackPublication | undefined =
+      room.localParticipant.getTrack(Track.Source.ScreenShare);
     let screenShareAudioPub: RemoteTrackPublication | undefined;
     if (!screenSharePub) {
       room.participants.forEach((p) => {
@@ -796,15 +774,19 @@ export class LivekitService {
 
     if (screenSharePub && participant) {
       div.style.display = 'block';
-      const videoElm = <HTMLVideoElement>$('screenshare-video');
+      const videoElm = (<HTMLVideoElement>document.getElementById("screenshare-video"))
       screenSharePub.videoTrack?.attach(videoElm);
       if (screenShareAudioPub) {
         screenShareAudioPub.audioTrack?.attach(videoElm);
       }
       videoElm.onresize = () => {
-        this.updateVideoSize(videoElm, <HTMLSpanElement>$('screenshare-resolution'));
+        this.updateVideoSize(
+          videoElm,
+          <HTMLSpanElement>document.getElementById("screenshare-resolution")
+        );
       };
-      const infoElm = $('screenshare-info')!;
+      const infoElm = <HTMLElement>document.getElementById("screenshare-info")
+
       infoElm.innerHTML = `Screenshare from ${participant.identity}`;
     } else {
       div.style.display = 'none';
@@ -818,17 +800,21 @@ export class LivekitService {
         if (!kind) {
           return;
         }
-        const devices = await Room.getLocalDevices(kind);
-        const element = <HTMLSelectElement>$(id);
-        this.populateSelect(element, devices, this.state.defaultDevices.get(kind));
-      }),
+         this.devices = await Room.getLocalDevices(kind);
+        const element = <HTMLSelectElement>document.getElementById(id);
+        this.populateSelect(
+          element,
+          this.devices,
+          this.state.defaultDevices.get(kind)
+        );
+      })
     );
   }
 
   populateSelect(
     element: HTMLSelectElement,
     devices: MediaDeviceInfo[],
-    selectedDeviceId?: string,
+    selectedDeviceId?: string
   ) {
     // clear all elements
     element.innerHTML = '';
@@ -861,8 +847,29 @@ export class LivekitService {
 
     const toRemove = connected ? connectedSet : disconnectedSet;
     const toAdd = connected ? disconnectedSet : connectedSet;
+    toRemove.forEach((id) => {
+      const element = <HTMLButtonElement>document.getElementById(id);
+      if (element) {
+        element.removeAttribute('disabled');
+      }
+    });
+   toAdd.forEach((id) => {
+    const element = <HTMLButtonElement>document.getElementById(id);
+    if (element) {
+      element.setAttribute('disabled', 'true');
+    }
+  });
+  }
 
-    toRemove.forEach((id) => $(id)?.removeAttribute('disabled'));
-    toAdd.forEach((id) => $(id)?.setAttribute('disabled', 'true'));
+  enterText() {
+    if (!this.room) return;
+    if (this.message) {
+      const msg = this.state.encoder.encode(this.message);
+      this.room.localParticipant.publishData(msg, DataPacket_Kind.RELIABLE)
+
+      let chatElm = <HTMLTextAreaElement>document.getElementById("chat");
+      chatElm.value += `${this.room.localParticipant.identity} (me): ${msg}\n`;
+      this.message = ""
+    }
   }
 }

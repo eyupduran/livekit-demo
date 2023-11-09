@@ -9,60 +9,63 @@
                         <b>LiveKit URL</b>
                     </div>
                     <div>
-                        <input [(ngModel)]="livekitUrl" type="text" class="form-control" id="url"
+                        <input [(ngModel)]="livekitService.livekitUrl" type="text" class="form-control" id="url"
                             value="ws://localhost:7880" />
                     </div>
                     <div>
                         <b>Token</b>
                     </div>
                     <div>
-                        <input [(ngModel)]="token" type="text" class="form-control" id="token" />
+                        <input [(ngModel)]="livekitService.token" type="text" class="form-control" id="token" />
                     </div>
                     <div>
                         <b>E2EE key</b>
                     </div>
                     <div>
-                        <input [(ngModel)]="e2EEKey" type="text" class="form-control" id="crypto-key" />
+                        <input [(ngModel)]="livekitService.e2EEKey" type="text" class="form-control" id="crypto-key" />
                     </div>
                 </div>
 
                 <!-- connect options -->
                 <div id="options-area">
                     <div>
-                        <input [(ngModel)]="publishOption" type="checkbox" class="form-check-input" id="publish-option"
+                        <input [(ngModel)]="livekitService.publishOption" type="checkbox" class="form-check-input" id="publish-option"
                             [checked]="true"/>
                         <label for="publish-option" class="form-check-label"> Publish </label>
                     </div>
                     <div>
-                        <input [(ngModel)]="simulcast" type="checkbox" class="form-check-input" id="simulcast"
+                        <input [(ngModel)]="livekitService.simulcast" type="checkbox" class="form-check-input" id="simulcast"
                             checked />
                         <label for="simulcast" class="form-check-label"> Simulcast </label>
                     </div>
                     <div>
-                        <input [(ngModel)]="dynacast" type="checkbox" class="form-check-input" id="dynacast" checked />
+                        <input [(ngModel)]="livekitService.dynacast" type="checkbox" class="form-check-input" id="dynacast" checked />
                         <label for="dynacast" class="form-check-label"> Dynacast </label>
                     </div>
                     <div>
-                        <input [(ngModel)]="adaptiveStream" type="checkbox" class="form-check-input"
+                        <input [(ngModel)]="livekitService.adaptiveStream" type="checkbox" class="form-check-input"
                             id="adaptive-stream" checked />
                         <label for="adaptive-stream" class="form-check-label"> AdaptiveStream </label>
                     </div>
                     <div>
-                        <input [(ngModel)]="forceTurn" type="checkbox" class="form-check-input" id="force-turn" />
+                        <input [(ngModel)]="livekitService.forceTurn" type="checkbox" class="form-check-input" id="force-turn" />
                         <label for="force-turn" class="form-check-label"> Force TURN </label>
                     </div>
                     <div>
-                        <input [(ngModel)]="autoSubscribe" type="checkbox" class="form-check-input" id="auto-subscribe"
+                        <input [(ngModel)]="livekitService.autoSubscribe" type="checkbox" class="form-check-input" id="auto-subscribe"
                             checked />
                         <label for="auto-subscribe" class="form-check-label"> Auto Subscribe </label>
                     </div>
                     <div>
-                        <input [(ngModel)]="e2ee" type="checkbox" class="form-check-input" id="e2ee" />
+                        <input [(ngModel)]="livekitService.e2ee" type="checkbox" class="form-check-input" id="e2ee" />
                         <label for="e2ee" class="form-check-label"> E2E Encryption </label>
                     </div>
                     <div>
-                        <select [(ngModel)]="preferredCodec" id="preferred-codec" class="custom-select"
-                            style="width: auto"></select>
+                        <div>
+                            <select [(ngModel)]="livekitService.preferredCodec" id="preferred-codec" class="custom-select" style="width: auto">
+                            </select>
+                          </div>
+                          
                     </div>
                 </div>
 
@@ -70,36 +73,36 @@
                 <div id="actions-area">
                     <div>
                         <button id="connect-button" class="btn btn-primary mt-1" type="button"
-                            (click)="this.connectWithFormInput()">
+                            (click)="livekitService.connectWithFormInput()">
                             Connect
                         </button>
                     </div>
                     <div>
                         <button id="toggle-audio-button" class="btn btn-secondary mt-1" disabled type="button"
-                            (click)="toggleAudio()">
+                            (click)="livekitService.toggleAudio()">
                             Enable Mic
                         </button>
                         <button id="toggle-video-button" class="btn btn-secondary mt-1" disabled type="button"
-                            (click)="toggleVideo()">
+                            (click)="livekitService.toggleVideo()">
                             Enable Camera
                         </button>
                         <button id="flip-video-button" class="btn btn-secondary mt-1"disabled type="button"
-                            (click)="flipVideo()">
+                            (click)="livekitService.flipVideo()">
                             Flip Camera
                         </button>
                         <button id="share-screen-button" class="btn btn-secondary mt-1"disabled type="button"
-                            (click)="shareScreen()">
+                            (click)="livekitService.shareScreen()">
                             Share Screen
                         </button>
                         <button id="toggle-e2ee-button" class="btn btn-secondary mt-1" disabled type="button"
-                            (click)="toggleE2EE()">
+                            (click)="livekitService.toggleE2EE()">
                             Enable E2EE
                         </button>
                         <button id="e2ee-ratchet-button" class="btn btn-secondary mt-1" disabled type="button">
                             Ratchet Key
                         </button>
                         <select id="simulate-scenario" class="custom-select" style="width: auto"
-                            (change)="handleScenario($event)">
+                            (change)="livekitService.handleScenario($event)">
                             >
                             <option value="" selected>Simulate</option>
                             <option value="signal-reconnect">Signal reconnect</option>
@@ -115,7 +118,7 @@
                             <option value="unsubscribe-all">Unsubscribe all</option>
                         </select>
                         <button id="disconnect-room-button" class="btn btn-danger mt-1" disabled type="button"
-                            (click)="disconnectRoom()">
+                            (click)="livekitService.disconnectRoom()">
                             Disconnect
                         </button>
                         <button id="start-audio-button" class="btn btn-secondary mt-1" disabled type="button"
@@ -123,14 +126,14 @@
                             Start Audio
                         </button>
                         <select id="preferred-quality" class="custom-select" style="width: auto"
-                            (change)="handlePreferredQuality($event)">
+                            (change)="livekitService.handlePreferredQuality($event)">
                             <option value="" selected>PreferredQuality</option>
                             <option value="high">high</option>
                             <option value="medium">medium</option>
                             <option value="low">low</option>
                         </select>
                         <select id="preferred-fps" class="custom-select" style="width: auto"
-                            (change)="handlePreferredFPS($event)">
+                            (change)="livekitService.handlePreferredFPS($event)">
                             <option value="" selected>PreferredFPS</option>
                             <option value="30">30</option>
                             <option value="15">15</option>
@@ -141,42 +144,42 @@
 
                 <div id="inputs-area">
                     <div>
-                        <select id="video-input" class="custom-select" (change)="handleDeviceSelected($event)">
+                        <select id="video-input" class="custom-select" (change)="livekitService.handleDeviceSelected($event)">
                             <option selected>Video Input (default)</option>
                         </select>
                     </div>
                     <div>
-                        <select id="audio-input" class="custom-select" (change)="handleDeviceSelected($event)">
+                        <select id="audio-input" class="custom-select" (change)="livekitService.handleDeviceSelected($event)">
                             <option selected>Audio Input (default)</option>
                         </select>
                     </div>
                     <div>
-                        <select id="audio-output" class="custom-select" (change)="handleDeviceSelected($event)">
+                        <select id="audio-output" class="custom-select" (change)="livekitService.handleDeviceSelected($event)">
                             <option selected>Audio Output (default)</option>
                         </select>
                     </div>
                 </div>
             </div>
-            <!-- <div class="col-md-4">
+            <div class="col-md-4">
                 <h3>Chat</h3>
                 <div id="chat-area">
                     <textarea class="form-control" id="chat" rows="9"></textarea>
                     <div id="chat-input-area">
                         <div>
-                            <input type="text" class="form-control" id="entry" placeholder="Type your message here" />
+                            <input [(ngModel)]="livekitService.message" type="text" class="form-control" id="entry" placeholder="Type your message here" />
                         </div>
                         <div>
                             <button id="send-button" class="btn btn-primary" type="button"
-                                onclick="appActions.enterText()" disabled>
+                               (click)="livekitService.enterText()" disabled>
                                 Send
                             </button>
                         </div>
                     </div>
                 </div>
-            </div> -->
+            </div>
         </div>
 
-        <div #screenshareArea id="screenshare-area">
+        <div id="screenshare-area">
             <div>
                 <span id="screenshare-info"> </span>
                 <span id="screenshare-resolution"> </span>
@@ -184,11 +187,8 @@
             <video id="screenshare-video" autoplay playsinline></video>
         </div>
 
-        <div #participantsArea id="participants-area">
+        <div id="participants-area">
         </div>
         
-        <!-- <div id="log-area">
-            <textarea id="log"></textarea>
-        </div> -->
     </div>
 </body>
